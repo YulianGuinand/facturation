@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../../../../../../convex/_generated/api";
 import { generateInvoicePdf } from "@/lib/invoice-pdf";
+import { generateFacturXxml } from "@/lib/factur-x";
 
 const DOC_TYPE_LABELS: Record<string, string> = {
   quote: "devis",
@@ -119,8 +120,64 @@ export async function GET(
       amount: vals.amount,
     }));
 
+    const xmlStr = generateFacturXxml({
+      number: doc.number,
+      documentType: doc.type,
+      issueDate: doc.issueDate,
+      dueDate: doc.dueDate ?? doc.issueDate,
+      deliveryDate: doc.saleDate ?? undefined,
+      currency: doc.currency,
+      latePenaltyRate: doc.latePenaltyRate ?? undefined,
+      flatRateIndemnity: doc.flatRateIndemnity ?? undefined,
+      discountRate: "néant",
+      paymentTerms: doc.paymentTerms ?? undefined,
+      orderReference: doc.orderReference ?? undefined,
+      contractReference: doc.contractReference ?? undefined,
+      company: {
+        name: company?.name ?? "",
+        siren: company?.siren ?? undefined,
+        siret: company?.siret ?? undefined,
+        vatNumber: company?.vatNumber ?? undefined,
+        address: companyAddress?.line1 ?? undefined,
+        addressLine2: companyAddress?.line2 ?? undefined,
+        postalCode: companyAddress?.postalCode ?? undefined,
+        city: companyAddress?.city ?? undefined,
+        country: companyAddress?.country ?? undefined,
+      },
+      customer: {
+        companyName: customer?.companyName ?? undefined,
+        firstName: customer?.firstName ?? undefined,
+        lastName: customer?.lastName ?? undefined,
+        siren: customer?.siren ?? undefined,
+        siret: customer?.siret ?? undefined,
+        vatNumber: customer?.vatNumber ?? undefined,
+        address: customerAddress?.line1 ?? undefined,
+        addressLine2: customerAddress?.line2 ?? undefined,
+        postalCode: customerAddress?.postalCode ?? undefined,
+        city: customerAddress?.city ?? undefined,
+        country: customerAddress?.country ?? undefined,
+      },
+      vatBreakdown,
+      items: items.map((item: any) => ({
+        reference: item.reference ?? undefined,
+        designation: item.designation,
+        quantity: item.quantity,
+        unit: item.unitId ? unitMap.get(item.unitId) ?? undefined : undefined,
+        unitPriceExclTax: item.unitPriceExclTax,
+        vatRate: item.vatRate,
+        totalExclTax: item.totalExclTax,
+      })),
+      totals: {
+        totalExclTax: doc.totalExclTax,
+        totalVat: doc.totalVat,
+        totalInclTax: doc.totalInclTax,
+      },
+    });
+    const facturXxml = new TextEncoder().encode(xmlStr);
+
     const pdfBytes = await generateInvoicePdf({
       logoBase64,
+      facturXxml,
       number: doc.number,
       documentType: doc.type,
       issueDate: doc.issueDate,

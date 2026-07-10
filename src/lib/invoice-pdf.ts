@@ -2,6 +2,7 @@ import fontkit from "@pdf-lib/fontkit";
 import fs from "fs";
 import path from "path";
 import { PDFDocument, PDFFont, PDFPage, rgb } from "pdf-lib";
+import { applyPdfACompliance, sanitizeTextForPdf } from "./pdf-a-compliance";
 
 interface InvoiceData {
   number: string;
@@ -27,6 +28,7 @@ interface InvoiceData {
   discountRate?: string;
   bankAccount?: { iban: string; bic: string; bankName?: string };
   logoBase64?: string;
+  facturXxml: Uint8Array;
 
   company: {
     name: string;
@@ -101,19 +103,29 @@ const GRAY: [number, number, number] = [0.96, 0.96, 0.96];
 
 async function loadFonts(pdfDoc: PDFDocument) {
   pdfDoc.registerFontkit(fontkit);
-  const robotoDir = path.join(
+  const ttfDir = path.join(process.cwd(), "src/lib/fonts");
+  const woffDir = path.join(
     process.cwd(),
     "node_modules/@fontsource/roboto/files",
   );
-  const regular = await pdfDoc.embedFont(
-    fs.readFileSync(path.join(robotoDir, "roboto-latin-400-normal.woff")),
-  );
-  const bold = await pdfDoc.embedFont(
-    fs.readFileSync(path.join(robotoDir, "roboto-latin-700-normal.woff")),
-  );
-  const italic = await pdfDoc.embedFont(
-    fs.readFileSync(path.join(robotoDir, "roboto-latin-400-italic.woff")),
-  );
+
+  const loadOpts = { subset: true };
+
+  const tryLoad = async (
+    ttfName: string,
+    woffName: string,
+  ): Promise<PDFFont> => {
+    const ttfPath = path.join(ttfDir, ttfName);
+    if (fs.existsSync(ttfPath)) {
+      return pdfDoc.embedFont(fs.readFileSync(ttfPath), loadOpts);
+    }
+    const woffPath = path.join(woffDir, woffName);
+    return pdfDoc.embedFont(fs.readFileSync(woffPath), loadOpts);
+  };
+
+  const regular = await tryLoad("Roboto-Regular.ttf", "roboto-latin-400-normal.woff");
+  const bold = await tryLoad("Roboto-Bold.ttf", "roboto-latin-700-normal.woff");
+  const italic = await tryLoad("Roboto-Italic.ttf", "roboto-latin-400-italic.woff");
   return { regular, bold, italic };
 }
 
@@ -126,7 +138,7 @@ function drawText(
   size = 10,
   color: number[] = [0.2, 0.2, 0.2],
 ) {
-  page.drawText(text, {
+  page.drawText(sanitizeTextForPdf(text), {
     x,
     y,
     size,
@@ -144,8 +156,8 @@ function drawTextRight(
   size = 10,
   color: number[] = [0.2, 0.2, 0.2],
 ) {
-  const textWidth = font.widthOfTextAtSize(text, size);
-  page.drawText(text, {
+  const textWidth = font.widthOfTextAtSize(sanitizeTextForPdf(text), size);
+  page.drawText(sanitizeTextForPdf(text), {
     x: rightX - textWidth,
     y,
     size,
@@ -730,5 +742,6 @@ export async function generateInvoicePdf(
     }
   }
 
+  applyPdfACompliance(pdfDoc, data.facturXxml);
   return pdfDoc.save();
 }

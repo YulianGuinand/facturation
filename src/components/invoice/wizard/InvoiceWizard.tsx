@@ -1,21 +1,21 @@
 "use client";
 
-import { use, useEffect, useRef } from "react";
 import { useQuery } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
-import { WizardProvider, useWizard } from "./wizard-context";
-import { StepProgress } from "./StepProgress";
-import { StepCompany } from "./StepCompany";
-import { StepClient } from "./StepClient";
-import { StepInfo } from "./StepInfo";
-import { StepLines } from "./StepLines";
-import { StepReview } from "./StepReview";
-import { StepValidate } from "./StepValidate";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useEffect, useRef } from "react";
+import { api } from "../../../../convex/_generated/api";
+import { StepClient } from "./StepClient";
+import { StepCompany } from "./StepCompany";
+import { StepInfo } from "./StepInfo";
+import { StepLines } from "./StepLines";
+import { StepProgress } from "./StepProgress";
+import { StepReview } from "./StepReview";
+import { StepValidate } from "./StepValidate";
+import { WizardProvider, useWizard } from "./wizard-context";
 
 function WizardContent() {
-  const { state, currentStepIndex, dispatch } = useWizard();
+  const { state } = useWizard();
   const router = useRouter();
 
   const steps = {
@@ -30,7 +30,7 @@ function WizardContent() {
   const Component = steps[state.currentStep];
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-7xl mx-auto">
       <div className="flex items-center gap-3 mb-6">
         <button
           type="button"
@@ -63,7 +63,7 @@ function WizardLoader({ editId }: { editId?: string }) {
 
   const editDoc = useQuery(
     api.queries.documents.getDocumentById,
-    editId ? { documentId: editId as any } : "skip"
+    editId ? { documentId: editId as any } : "skip",
   );
 
   useEffect(() => {

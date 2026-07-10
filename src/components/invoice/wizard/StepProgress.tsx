@@ -1,66 +1,72 @@
 "use client";
 
-import { useWizard, WIZARD_TABS } from "./wizard-context";
 import { cn } from "@/lib/utils";
 import * as LucideIcons from "lucide-react";
+import { useWizard, WIZARD_TABS } from "./wizard-context";
 
 export function StepProgress() {
-  const { state, goToStep, isStepAccessible, progressPercent } = useWizard();
-  const currentStep = state.currentStep;
+  const { state, goToStep, currentStepIndex, progressPercent } = useWizard();
 
   return (
-    <nav aria-label="Progression" className="mb-8">
-      <div className="hidden sm:flex items-center justify-between">
-        <ol className="flex items-center w-full">
+    <nav aria-label="Progression" className="mb-10">
+      <div className="hidden sm:block">
+        <ol className="flex items-center">
           {WIZARD_TABS.map((tab, index) => {
             const Icon = (LucideIcons as any)[tab.icon];
-            const isActive = currentStep === tab.key;
-            const isPast = (STEP_INDEX[tab.key] ?? 0) < (STEP_INDEX[currentStep] ?? 0);
-            const accessible = isPast || isStepAccessible(tab.key);
+            const isCompleted = state.validatedSteps.has(tab.key);
+            const isActive = state.currentStep === tab.key;
+            const isFuture = !isCompleted && !isActive;
+            const isLast = index === WIZARD_TABS.length - 1;
 
             return (
               <li
                 key={tab.key}
-                className={cn(
-                  "flex items-center",
-                  index < WIZARD_TABS.length - 1 && "flex-1"
-                )}
+                className={cn("flex items-center", !isLast && "flex-1")}
               >
-                <button
-                  type="button"
-                  onClick={() => accessible && goToStep(tab.key)}
-                  disabled={!accessible}
-                  className={cn(
-                    "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all",
-                    isActive && "bg-primary/10 text-primary shadow-sm",
-                    isPast && "text-muted-foreground hover:text-foreground cursor-pointer",
-                    !isPast && !isActive && "text-muted-foreground/50",
-                    !accessible && "cursor-not-allowed"
-                  )}
-                >
+                <div className="flex flex-col items-center">
+                  <button
+                    type="button"
+                    onClick={() => isCompleted && goToStep(tab.key)}
+                    disabled={!isCompleted}
+                    className={cn(
+                      "flex items-center justify-center size-10 rounded-full transition-all duration-300",
+                      isCompleted &&
+                        "bg-primary shadow-sm shadow-primary/30 cursor-pointer",
+                      isActive &&
+                        "bg-background border-2 border-primary shadow-lg shadow-primary/20 ring-2 ring-primary/20",
+                      isFuture && "bg-muted/50 border border-border/60",
+                      !isCompleted && "cursor-default",
+                    )}
+                    aria-current={isActive ? "step" : undefined}
+                  >
+                    {isCompleted ? (
+                      <LucideIcons.Check className="size-5 text-primary-foreground stroke-[2.5]" />
+                    ) : (
+                      <Icon
+                        className={cn(
+                          "size-4.5 transition-colors",
+                          isActive && "text-primary",
+                          isFuture && "text-muted-foreground/40",
+                        )}
+                      />
+                    )}
+                  </button>
                   <span
                     className={cn(
-                      "flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold",
-                      isActive && "bg-primary text-primary-foreground",
-                      isPast && "bg-primary/20 text-primary",
-                      !isPast && !isActive && "bg-muted text-muted-foreground"
+                      "mt-2 text-xs font-medium transition-colors whitespace-nowrap",
+                      isCompleted && "text-primary",
+                      isActive && "text-primary font-semibold",
+                      isFuture && "text-muted-foreground/40",
                     )}
                   >
-                    {isPast ? (
-                      <LucideIcons.Check className="w-3.5 h-3.5" />
-                    ) : (
-                      <Icon className="w-3.5 h-3.5" />
-                    )}
+                    {tab.label}
                   </span>
-                  <span className="hidden lg:inline">{tab.label}</span>
-                </button>
-                {index < WIZARD_TABS.length - 1 && (
+                </div>
+                {!isLast && (
                   <div
                     className={cn(
-                      "flex-1 h-px mx-2",
-                      (STEP_INDEX[tab.key] ?? 0) < (STEP_INDEX[currentStep] ?? 0)
-                        ? "bg-primary/40"
-                        : "bg-border"
+                      "flex-1 h-0.75 mx-3 rounded-full transition-all duration-300",
+                      isCompleted ? "bg-primary" : "bg-border/50",
                     )}
                   />
                 )}
@@ -73,10 +79,10 @@ export function StepProgress() {
       <div className="sm:hidden space-y-2">
         <div className="flex items-center justify-between text-sm text-muted-foreground">
           <span>
-            Étape {(STEP_INDEX[currentStep] ?? 0) + 1} sur {WIZARD_TABS.length}
+            Étape {currentStepIndex + 1} sur {WIZARD_TABS.length}
           </span>
           <span className="font-medium text-foreground">
-            {WIZARD_TABS.find((t) => t.key === currentStep)?.label}
+            {WIZARD_TABS.find((t) => t.key === state.currentStep)?.label}
           </span>
         </div>
         <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
@@ -89,7 +95,3 @@ export function StepProgress() {
     </nav>
   );
 }
-
-const STEP_INDEX: Record<string, number> = Object.fromEntries(
-  WIZARD_TABS.map((t, i) => [t.key, i])
-);
