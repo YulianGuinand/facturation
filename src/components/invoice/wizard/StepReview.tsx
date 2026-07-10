@@ -6,7 +6,7 @@ import { useWizard } from "./wizard-context";
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Button } from "@/components/ui/button";
-import { Building2, User, FileText } from "lucide-react";
+import { Building2, User, FileText, Landmark } from "lucide-react";
 
 export function StepReview() {
   const companyId = useCompanyId();
@@ -25,6 +25,11 @@ export function StepReview() {
   const items = data?.items ?? [];
   const taxRates = data?.taxRates ?? [];
   const units = data?.units ?? [];
+
+  const bankAccount = useQuery(
+    api.queries.bank_accounts.getBankAccountById,
+    doc?.bankAccountId ? { bankAccountId: doc.bankAccountId as any } : "skip",
+  );
 
   const getUnitLabel = (unitId: any) => {
     if (!unitId) return "";
@@ -127,6 +132,18 @@ export function StepReview() {
               {doc.customerNotes}
             </div>
           )}
+          {bankAccount && (
+            <div className="flex items-start gap-2 text-sm pt-1 border-t mt-2">
+              <Landmark className="h-4 w-4 text-muted-foreground mt-0.5" />
+              <div>
+                <span className="font-medium">{bankAccount.name}</span>
+                {bankAccount.bankName && <span className="text-muted-foreground"> — {bankAccount.bankName}</span>}
+                <p className="font-mono text-xs text-muted-foreground">
+                  IBAN: {bankAccount.iban} · BIC: {bankAccount.bic}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -148,7 +165,7 @@ export function StepReview() {
               <tr key={item._id} className="border-b last:border-0">
                 <td className="p-3 text-muted-foreground">{item.reference ?? "-"}</td>
                 <td className="p-3">
-                  {item.designation}
+                  <span className="[&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_li]:text-xs [&_li_p]:m-0 [&_p]:text-xs [&_h1]:text-sm [&_h1]:font-bold [&_h2]:text-xs [&_h2]:font-bold" dangerouslySetInnerHTML={{ __html: item.designation ?? "" }} />
                   {item.description && (
                     <p className="text-xs text-muted-foreground">{item.description}</p>
                   )}

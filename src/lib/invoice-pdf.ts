@@ -4,6 +4,132 @@ import path from "path";
 import { PDFDocument, PDFFont, PDFPage, rgb } from "pdf-lib";
 import { applyPdfACompliance, sanitizeTextForPdf } from "./pdf-a-compliance";
 
+function decodeEntities(text: string): string {
+  return text
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, " ");
+}
+
+function toSegments(
+  html: string,
+  regular: PDFFont,
+  bold: PDFFont,
+  italic: PDFFont,
+): { segments: { text: string; font: PDFFont }[]; size: number }[] {
+  const blocks: {
+    segments: { text: string; font: PDFFont }[];
+    size: number;
+  }[] = [];
+  if (!html) return blocks;
+
+  const tagRegex = /<\/?(p|h[1-6]|li|ul|ol)\b[^>]*>/gi;
+  let lastIdx = 0;
+  let currentTag = "";
+  let listType = "";
+  let listIdx = 0;
+  let insideLi = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = tagRegex.exec(html)) !== null) {
+    const raw = match[0];
+    const tagName = match[1];
+    const isClosing = raw[1] === "/";
+
+    const textBefore = html.slice(lastIdx, match.index);
+    if (textBefore) {
+      const stripped = textBefore.replace(/<[^>]*>/g, "").trim();
+      if (stripped) {
+        if (insideLi > 0) {
+          const prefix = listType === "ol" ? `${listIdx + 1}. ` : "• ";
+          const segs = parseInline(textBefore, regular, bold, italic);
+          blocks.push({
+            segments: [{ text: prefix, font: regular }, ...segs],
+            size: 8,
+          });
+          listIdx++;
+        } else if (currentTag && currentTag !== "ul" && currentTag !== "ol") {
+          const isHeading = ["h1", "h2", "h3", "h4", "h5", "h6"].includes(
+            currentTag,
+          );
+          const size = currentTag === "h1" ? 10 : currentTag === "h2" ? 9 : 8;
+          const segs = parseInline(
+            textBefore,
+            regular,
+            bold,
+            italic,
+            isHeading ? bold : undefined,
+          );
+          blocks.push({ segments: segs, size });
+        }
+      }
+    }
+
+    if (tagName === "ul" || tagName === "ol") {
+      if (isClosing) {
+        listType = "";
+        listIdx = 0;
+      } else {
+        listType = tagName;
+        listIdx = 0;
+      }
+      currentTag = "";
+    } else if (tagName === "li") {
+      if (isClosing) {
+        insideLi--;
+      } else {
+        insideLi++;
+      }
+      currentTag = isClosing ? "" : tagName;
+    } else if (isClosing) {
+      currentTag = "";
+    } else {
+      currentTag = tagName;
+    }
+
+    lastIdx = tagRegex.lastIndex;
+  }
+
+  const remaining = html
+    .slice(lastIdx)
+    .replace(/<[^>]*>/g, "")
+    .trim();
+  if (remaining && currentTag && currentTag !== "ul" && currentTag !== "ol") {
+    const segs = parseInline(remaining, regular, bold, italic);
+    blocks.push({ segments: segs, size: 8 });
+  }
+
+  return blocks;
+}
+
+function parseInline(
+  html: string,
+  regular: PDFFont,
+  bold: PDFFont,
+  italic: PDFFont,
+  defaultFont?: PDFFont,
+): { text: string; font: PDFFont }[] {
+  const inlineRegex =
+    /<strong>([\s\S]*?)<\/strong>|<em>([\s\S]*?)<\/em>|<b>([\s\S]*?)<\/b>|<i>([\s\S]*?)<\/i>|<[^>]*>([\s\S]*?)<\/[^>]*>|([^<]+)/gi;
+  let match: RegExpExecArray | null;
+  const segments: { text: string; font: PDFFont }[] = [];
+
+  while ((match = inlineRegex.exec(html)) !== null) {
+    const text =
+      match[1] || match[2] || match[3] || match[4] || match[5] || match[6];
+    if (!text) continue;
+    let font = defaultFont ?? regular;
+    if (match[1] || match[3]) font = bold;
+    else if (match[2] || match[4]) font = italic;
+    segments.push({ text: decodeEntities(text), font });
+  }
+
+  return segments;
+}
+
 interface InvoiceData {
   number: string;
   documentType: string;
@@ -123,9 +249,15 @@ async function loadFonts(pdfDoc: PDFDocument) {
     return pdfDoc.embedFont(fs.readFileSync(woffPath), loadOpts);
   };
 
-  const regular = await tryLoad("Roboto-Regular.ttf", "roboto-latin-400-normal.woff");
+  const regular = await tryLoad(
+    "Roboto-Regular.ttf",
+    "roboto-latin-400-normal.woff",
+  );
   const bold = await tryLoad("Roboto-Bold.ttf", "roboto-latin-700-normal.woff");
-  const italic = await tryLoad("Roboto-Italic.ttf", "roboto-latin-400-italic.woff");
+  const italic = await tryLoad(
+    "Roboto-Italic.ttf",
+    "roboto-latin-400-italic.woff",
+  );
   return { regular, bold, italic };
 }
 
@@ -145,6 +277,80 @@ function drawText(
     font,
     color: rgb(color[0], color[1], color[2]),
   });
+}
+
+function drawFormattedHtml(
+  page: PDFPage,
+  html: string,
+  regularFont: PDFFont,
+  boldFont: PDFFont,
+  italicFont: PDFFont,
+  x: number,
+  y: number,
+  maxWidth: number,
+  lineHeight = 11,
+  color: number[] = [0.2, 0.2, 0.2],
+): number {
+  const blocks = toSegments(html, regularFont, boldFont, italicFont);
+  for (const block of blocks) {
+    const segs = block.segments;
+    if (segs.length === 0) {
+      y -= lineHeight;
+      continue;
+    }
+
+    const words: { text: string; font: PDFFont }[] = [];
+    for (const seg of segs) {
+      for (const w of seg.text.split(" ")) {
+        if (w) words.push({ text: w, font: seg.font });
+      }
+    }
+
+    const lines: { text: string; font: PDFFont }[][] = [];
+    let curLine: { text: string; font: PDFFont }[] = [];
+    let curWidth = 0;
+    let curFont = regularFont;
+    for (const w of words) {
+      const wWidth = w.font.widthOfTextAtSize(w.text, block.size);
+      const spaceWidth = curFont.widthOfTextAtSize(" ", block.size);
+      const totalWidth =
+        curWidth + (curLine.length > 0 ? spaceWidth : 0) + wWidth;
+      if (totalWidth > maxWidth && curLine.length > 0) {
+        lines.push(curLine);
+        curLine = [];
+        curWidth = 0;
+      }
+      if (curLine.length > 0) {
+        curWidth += spaceWidth;
+        const sep: { text: string; font: PDFFont } = {
+          text: " ",
+          font: curFont,
+        };
+        curLine.push(sep);
+      }
+      curLine.push(w);
+      curWidth += wWidth;
+      curFont = w.font;
+    }
+    if (curLine.length > 0) lines.push(curLine);
+
+    for (const line of lines) {
+      let cx = x;
+      if (y < 80) return y;
+      for (const seg of line) {
+        page.drawText(sanitizeTextForPdf(seg.text), {
+          x: cx,
+          y,
+          size: block.size,
+          font: seg.font,
+          color: rgb(color[0], color[1], color[2]),
+        });
+        cx += seg.font.widthOfTextAtSize(seg.text, block.size);
+      }
+      y -= lineHeight;
+    }
+  }
+  return y;
 }
 
 function drawTextRight(
@@ -440,6 +646,8 @@ export async function generateInvoicePdf(
   });
   y -= 22;
 
+  const designationWidth = colRightX.price - colLeftX.designation - 5;
+
   for (let i = 0; i < data.items.length; i++) {
     const item = data.items[i];
     if (y < 80) {
@@ -447,23 +655,42 @@ export async function generateInvoicePdf(
       y = PAGE_H - MARGIN;
     }
 
-    drawText(page, regular, `${i + 1}.`, colLeftX.line, y, 8);
-    drawText(page, regular, item.designation, colLeftX.designation, y, 8);
+    const rowY = y;
+
+    drawText(page, regular, `${i + 1}.`, colLeftX.line, rowY, 8);
+    const newY = drawFormattedHtml(
+      page,
+      item.designation ?? "",
+      regular,
+      bold,
+      italic,
+      colLeftX.designation,
+      rowY,
+      designationWidth,
+      11,
+    );
     drawTextRight(
       page,
       regular,
       formatMoney(item.unitPriceExclTax),
       colRightX.price,
-      y,
+      rowY,
       8,
     );
-    drawTextRight(page, regular, item.quantity.toString(), colRightX.qty, y, 8);
+    drawTextRight(
+      page,
+      regular,
+      item.quantity.toString(),
+      colRightX.qty,
+      rowY,
+      8,
+    );
     drawTextRight(
       page,
       regular,
       `${(item.vatRate / 100).toFixed(1)}%`,
       colRightX.vat,
-      y,
+      rowY,
       8,
     );
     drawTextRight(
@@ -471,7 +698,7 @@ export async function generateInvoicePdf(
       regular,
       formatMoney(item.totalExclTax),
       colRightX.totalHT,
-      y,
+      rowY,
       8,
     );
     drawTextRight(
@@ -479,17 +706,22 @@ export async function generateInvoicePdf(
       regular,
       formatMoney(item.totalInclTax),
       colRightX.totalTTC,
-      y,
+      rowY,
       8,
     );
 
+    const paddingBottom = 2;
+    const sepY = newY - paddingBottom;
+
     page.drawLine({
-      start: { x: MARGIN, y: y - 8 },
-      end: { x: PAGE_W - MARGIN, y: y - 8 },
+      start: { x: MARGIN, y: sepY },
+      end: { x: PAGE_W - MARGIN, y: sepY },
       thickness: 0.5,
       color: rgb(0.9, 0.9, 0.9),
     });
-    y -= 22;
+
+    const paddingTopNextRow = 14;
+    y = sepY - paddingTopNextRow;
   }
 
   // ── Totals ──

@@ -29,6 +29,7 @@ interface WizardState {
   currentStep: WizardStep;
   companyId: Id<"companies"> | null;
   customerId: Id<"customers"> | null;
+  bankAccountId: Id<"bankAccounts"> | null;
   validatedSteps: Set<WizardStep>;
   isDirty: boolean;
   lastSavedStep: WizardStep | null;
@@ -39,6 +40,7 @@ interface EditState {
   documentNumber: string;
   companyId: Id<"companies">;
   customerId?: Id<"customers"> | null;
+  bankAccountId?: Id<"bankAccounts"> | null;
   validatedSteps?: WizardStep[];
 }
 
@@ -48,6 +50,7 @@ type WizardAction =
   | { type: "SET_STEP"; step: WizardStep }
   | { type: "SET_COMPANY"; companyId: Id<"companies"> }
   | { type: "SET_CLIENT"; customerId: Id<"customers"> }
+  | { type: "SET_BANK_ACCOUNT"; bankAccountId: Id<"bankAccounts"> | null }
   | { type: "VALIDATE_STEP"; step: WizardStep }
   | { type: "INVALIDATE_STEP"; step: WizardStep }
   | { type: "SET_SAVED"; step: WizardStep }
@@ -65,6 +68,7 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
         documentNumber: action.payload.documentNumber,
         companyId: action.payload.companyId,
         customerId: action.payload.customerId ?? null,
+        bankAccountId: action.payload.bankAccountId ?? null,
         currentStep: "client" as WizardStep,
         validatedSteps: v,
       };
@@ -75,6 +79,8 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
       return { ...state, companyId: action.companyId };
     case "SET_CLIENT":
       return { ...state, customerId: action.customerId };
+    case "SET_BANK_ACCOUNT":
+      return { ...state, bankAccountId: action.bankAccountId };
     case "VALIDATE_STEP": {
       const next = new Set(state.validatedSteps);
       next.add(action.step);
@@ -117,6 +123,7 @@ const initialState: WizardState = {
   currentStep: "company",
   companyId: null,
   customerId: null,
+  bankAccountId: null,
   validatedSteps: new Set(),
   isDirty: false,
   lastSavedStep: null,

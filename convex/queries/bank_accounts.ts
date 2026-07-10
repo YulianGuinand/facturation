@@ -23,3 +23,10 @@ export const getDefaultBankAccount = query({
       .first();
   },
 });
+
+export const getBankAccountById = query({
+  args: { bankAccountId: v.id("bankAccounts") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.bankAccountId);
+  },
+});

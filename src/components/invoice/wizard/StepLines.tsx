@@ -7,6 +7,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { TiptapEditor } from "@/components/ui/tiptap-editor";
 import {
   Plus,
   Trash2,
@@ -302,11 +303,10 @@ function LineRow({
         />
       </div>
       <div className="col-span-3">
-        <Input
+        <TiptapEditor
           value={line.designation}
-          onChange={(e) => onChange("designation", e.target.value)}
+          onChange={(v) => onChange("designation", v)}
           placeholder="Désignation *"
-          className="h-8 text-xs"
         />
       </div>
       <div className="col-span-1">

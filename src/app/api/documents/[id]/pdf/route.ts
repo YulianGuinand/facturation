@@ -81,9 +81,17 @@ export async function GET(
       if (unit) unitMap.set(uid, unit.name);
     }
 
-    const bankAccount = await convex.query(api.queries.bank_accounts.getDefaultBankAccount, {
-      companyId: companyId as any,
-    });
+    let bankAccount = null;
+    if (doc.bankAccountId) {
+      bankAccount = await convex.query(api.queries.bank_accounts.getBankAccountById, {
+        bankAccountId: doc.bankAccountId as any,
+      });
+    }
+    if (!bankAccount) {
+      bankAccount = await convex.query(api.queries.bank_accounts.getDefaultBankAccount, {
+        companyId: companyId as any,
+      });
+    }
 
     // Fetch logo image if present
     let logoBase64: string | undefined;

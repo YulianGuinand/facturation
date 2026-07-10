@@ -79,6 +79,7 @@ export const updateInvoiceInfo = mutation({
     dueDate: v.optional(v.number()),
     paymentTerms: v.optional(v.string()),
     paymentMethodId: v.optional(v.id("paymentMethods")),
+    bankAccountId: v.optional(v.id("bankAccounts")),
     currency: v.optional(v.string()),
     language: v.optional(v.string()),
     orderReference: v.optional(v.string()),

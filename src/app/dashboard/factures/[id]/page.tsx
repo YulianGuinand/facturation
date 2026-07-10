@@ -20,10 +20,16 @@ export default function InvoiceDetailPage({
     api.queries.documents.getDocumentWithItems,
     companyId ? { documentId: id as any, companyId } : "skip",
   );
-  const bankAccount = useQuery(
-    api.queries.bank_accounts.getDefaultBankAccount,
-    companyId ? { companyId } : "skip",
+  const docPreview = data?.document;
+  const docBankAccount = useQuery(
+    api.queries.bank_accounts.getBankAccountById,
+    docPreview?.bankAccountId ? { bankAccountId: docPreview.bankAccountId as any } : "skip",
   );
+  const defaultBankAccount = useQuery(
+    api.queries.bank_accounts.getDefaultBankAccount,
+    !docPreview?.bankAccountId && companyId ? { companyId } : "skip",
+  );
+  const bankAccount = docBankAccount ?? defaultBankAccount;
 
   if (!data) {
     return (
@@ -112,7 +118,7 @@ export default function InvoiceDetailPage({
           <tbody>
             {items.map((item: any) => (
               <tr key={item._id} className="border-b last:border-0">
-                <td className="p-3">{item.designation}</td>
+                <td className="p-3 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_li_p]:m-0 [&_p]:m-0 [&_h1]:text-base [&_h1]:font-bold [&_h2]:text-sm [&_h2]:font-bold" dangerouslySetInnerHTML={{ __html: item.designation ?? "" }} />
                 <td className="p-3 text-right">{item.quantity}</td>
                 <td className="p-3 text-right">
                   {(item.unitPriceExclTax / 100).toFixed(2)} €
