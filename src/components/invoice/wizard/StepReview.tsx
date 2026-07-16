@@ -144,6 +144,14 @@ export function StepReview() {
               </div>
             </div>
           )}
+          {doc.legalNotes && (
+            <div className="text-sm pt-1 border-t mt-2">
+              <span className="text-muted-foreground font-medium">Conditions de paiement :</span>
+              <pre className="text-xs mt-1 whitespace-pre-wrap font-sans text-muted-foreground">
+                {doc.legalNotes}
+              </pre>
+            </div>
+          )}
         </div>
       )}
 

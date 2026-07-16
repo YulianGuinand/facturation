@@ -61,6 +61,7 @@ export function StepInfo() {
   const [internalReference, setInternalReference] = useState("");
   const [customerNotes, setCustomerNotes] = useState("");
   const [internalNotes, setInternalNotes] = useState("");
+  const [legalNotes, setLegalNotes] = useState("");
   const [operationCategory, setOperationCategory] = useState("");
 
   useEffect(() => {
@@ -73,6 +74,7 @@ export function StepInfo() {
       if (existingDoc.internalReference) setInternalReference(existingDoc.internalReference);
       if (existingDoc.customerNotes) setCustomerNotes(existingDoc.customerNotes);
       if (existingDoc.internalNotes) setInternalNotes(existingDoc.internalNotes);
+      if (existingDoc.legalNotes) setLegalNotes(existingDoc.legalNotes);
       if (existingDoc.operationCategory) setOperationCategory(existingDoc.operationCategory);
     }
   }, [existingDoc]);
@@ -92,6 +94,7 @@ export function StepInfo() {
         internalReference: internalReference || undefined,
         customerNotes: customerNotes || undefined,
         internalNotes: internalNotes || undefined,
+        legalNotes: legalNotes || undefined,
         operationCategory: operationCategory || undefined,
       });
       dispatch({ type: "VALIDATE_STEP", step: "info" });
@@ -367,6 +370,20 @@ export function StepInfo() {
           onChange={(e) => setInternalNotes(e.target.value)}
           placeholder="Non visible sur le document..."
         />
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-sm font-medium">
+          Conditions de paiement et mentions légales
+        </label>
+        <textarea
+          className="flex min-h-[120px] w-full rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-sm"
+          value={legalNotes}
+          onChange={(e) => setLegalNotes(e.target.value)}
+        />
+        <p className="text-xs text-muted-foreground">
+          Texte affiché dans la section "Conditions de paiement et mentions légales" sur le document.
+        </p>
       </div>
 
       <div className="flex items-center justify-between">

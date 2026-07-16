@@ -3,6 +3,16 @@ import { mutation } from "../_generated/server";
 import { createAuditLog, createDocumentHistory } from "../lib/audit";
 import { getNextSequence, getPrefixForType } from "../helpers/sequences";
 
+function defaultLegalNotes(latePenaltyRate?: number, flatRateIndemnity?: number): string {
+  const rate = (latePenaltyRate ?? 300) / 100;
+  const indemnity = (flatRateIndemnity ?? 4000) / 100;
+  return [
+    `Pénalités de retard : ${rate.toFixed(2)}% du montant total TTC`,
+    `Indemnité forfaitaire pour frais de recouvrement en cas de retard de paiement : ${indemnity.toFixed(2)} € (art. L.441-10 C.com.)`,
+    `Escompte pour paiement anticipé : néant`,
+  ].join("\n");
+}
+
 export const createInvoiceDraft = mutation({
   args: {
     companyId: v.id("companies"),
@@ -40,7 +50,7 @@ export const createInvoiceDraft = mutation({
       amountDue: 0,
       latePenaltyRate: settings?.latePenaltyRate,
       flatRateIndemnity: settings?.flatRateIndemnity,
-      legalNotes: settings?.legalNotes,
+      legalNotes: settings?.legalNotes ?? defaultLegalNotes(settings?.latePenaltyRate, settings?.flatRateIndemnity),
       isArchived: false,
     });
 

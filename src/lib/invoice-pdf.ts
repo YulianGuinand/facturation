@@ -859,52 +859,19 @@ export async function generateInvoicePdf(
   );
   y -= 16;
 
-  if (data.latePenaltyRate) {
-    drawText(
-      page,
-      regular,
-      `Pénalités de retard : ${(data.latePenaltyRate / 100).toFixed(2)}% du montant total TTC`,
-      MARGIN,
-      y,
-      8,
-    );
-    y -= 12;
-  }
-  drawText(
-    page,
-    regular,
-    "Indemnité forfaitaire pour frais de recouvrement en cas de retard de paiement : 40 € (art. L.441-10 C.com.)",
-    MARGIN,
-    y,
-    8,
-  );
-  y -= 12;
-
-  drawText(
-    page,
-    regular,
-    `Escompte pour paiement anticipé : ${data.discountRate ?? "néant"}`,
-    MARGIN,
-    y,
-    8,
-  );
-  y -= 12;
-
-  if (data.paymentTerms) {
-    drawText(
-      page,
-      regular,
-      `Conditions de règlement : ${data.paymentTerms}`,
-      MARGIN,
-      y,
-      8,
-    );
-    y -= 12;
-  }
-
   if (data.legalNotes) {
-    drawText(page, italic, data.legalNotes, MARGIN, y, 7, [0.5, 0.5, 0.5]);
-    y -= 15;
+    y = drawFormattedHtml(
+      page,
+      data.legalNotes.split("\n").map(l => l.trim() ? `<p>${l}</p>` : "<p> </p>").join(""),
+      regular,
+      bold,
+      italic,
+      MARGIN,
+      y,
+      PAGE_W - MARGIN * 2,
+      11,
+      [0.2, 0.2, 0.2],
+    );
   }
 
   // ── Section Signature & Bon pour accord ──
